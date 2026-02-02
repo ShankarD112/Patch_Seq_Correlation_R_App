@@ -10,6 +10,7 @@ ui <- fluidPage(
       width = 3,
       
       #### FILTER BUILDER ####
+      # Dynamic filters by metadata column (categorical or numeric)
       h4("Filters"),
       helpText("Add filters. 0 filters = show all cells."),
       
@@ -24,6 +25,7 @@ ui <- fluidPage(
       hr(),
       
       #### COLUMN VISIBILITY ####
+      # Table columns shown in the metadata view
       h4("Columns"),
       helpText("Select which metadata columns to display in the table."),
       
@@ -39,6 +41,7 @@ ui <- fluidPage(
       hr(),
       
       #### TABLE OPTIONS ####
+      # Table UX helpers + export
       h4("Table options"),
       checkboxInput("show_col_search", "Per-column search boxes", value = FALSE),
       
@@ -58,7 +61,7 @@ ui <- fluidPage(
         
         tabPanel(
           "Distributions (box/violin)",
-          
+          # Switch between gene expression and numeric metadata distributions
           fluidRow(
             column(
               4,
@@ -126,6 +129,7 @@ ui <- fluidPage(
         
         tabPanel(
           "Correlation",
+          # Compare any two numeric variables (metadata or gene expression)
           h4("Correlation between two variables (filtered subset)"),
           helpText("X and Y can be metadata numeric columns or gene expression (TPM/Raw)."),
           

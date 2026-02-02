@@ -8,6 +8,7 @@ server <- function(input, output, session) {
   # 0) Populate gene selectize inputs
   #############################################
   observe({
+    # Use server-side selectize for performance with large gene lists
     updateSelectizeInput(session, "violin_genes", choices = all_genes, server = TRUE)
     updateSelectizeInput(session, "corr_x_gene",  choices = all_genes, server = TRUE)
     updateSelectizeInput(session, "corr_y_gene",  choices = all_genes, server = TRUE)
@@ -46,6 +47,7 @@ server <- function(input, output, session) {
   #############################################
   # A) Track active filters by ID
   #############################################
+  # Filter rows are dynamic; store stable IDs to keep inputs synced.
   filter_ids <- reactiveVal(character(0))
   
   new_filter_id <- function() paste0("filt_", as.integer(runif(1, 1e6, 9e6)))
@@ -151,6 +153,7 @@ server <- function(input, output, session) {
             )
           )
         } else {
+          # Categorical filter: multiselect list of allowed values
           vals <- sort(unique(metadata_with_markers[[internal_col]]))
           cur_cats <- isolate(input[[paste0("cat_vals_", fid)]])
           if (is.null(cur_cats) && length(vals) > 0) cur_cats <- vals[1]
@@ -170,6 +173,7 @@ server <- function(input, output, session) {
   #############################################
   # D) Keep numeric slider and boxes in sync
   #############################################
+  # Maintain a single source of truth for numeric filters.
   observe({
     lapply(filter_ids(), function(fid) {
       observeEvent(input[[paste0("num_slider_", fid)]], {
@@ -202,6 +206,7 @@ server <- function(input, output, session) {
   # E) Column visibility (metadata table)
   #############################################
   columns_to_display <- reactive({
+    # Preserve selected order from the UI (using pretty -> internal map).
     chosen_pretty <- input$visible_cols_pretty
     internal <- names(pretty_col_lookup)[pretty_col_lookup %in% chosen_pretty]
     internal <- internal[match(chosen_pretty, pretty_col_lookup[internal])]
@@ -297,7 +302,7 @@ server <- function(input, output, session) {
     
     df_meta <- plot_meta()
     
-    # grouping variable
+    # grouping variable (categorical x-axis)
     group_col_internal <- NULL
     if (!is.null(input$violin_group_pretty) && input$violin_group_pretty != "None") {
       tmp <- names(pretty_col_lookup)[pretty_col_lookup == input$violin_group_pretty]
@@ -400,6 +405,7 @@ server <- function(input, output, session) {
       input$violin_group_pretty
     }
     
+    # Keep tooltip-friendly sample label
     pdat$Sample2 <- as.character(pdat$Sample)
     pdat$Sample2[is.na(pdat$Sample2) | trimws(pdat$Sample2) == ""] <- "(missing)"
     
@@ -475,7 +481,7 @@ server <- function(input, output, session) {
     
     base_samples <- unique(df_meta$Sample_internal)
     
-    # X
+    # X axis mapping (metadata numeric or gene expression)
     if (input$corr_x_source == "Metadata") {
       req(input$corr_x_meta_pretty)
       x_col <- pretty_to_internal(input$corr_x_meta_pretty)
@@ -494,7 +500,7 @@ server <- function(input, output, session) {
       base_samples <- smp_in_mat
     }
     
-    # Y
+    # Y axis mapping (metadata numeric or gene expression)
     if (input$corr_y_source == "Metadata") {
       req(input$corr_y_meta_pretty)
       y_col <- pretty_to_internal(input$corr_y_meta_pretty)
@@ -526,6 +532,7 @@ server <- function(input, output, session) {
   corr_fit <- reactive({
     df <- corr_df()
     if (nrow(df) < 2) return(NULL)
+    # Linear fit + confidence interval for trend line
     fit <- lm(y ~ x, data = df)
     xs  <- seq(min(df$x, na.rm = TRUE), max(df$x, na.rm = TRUE), length.out = 100)
     preds <- predict(fit, newdata = data.frame(x = xs), interval = "confidence")
@@ -543,6 +550,7 @@ server <- function(input, output, session) {
       return()
     }
     
+    # Report correlation stats for filtered subset only
     r <- suppressWarnings(cor(df$x, df$y, use = "complete.obs", method = method))
     fit <- lm(y ~ x, data = df)
     s   <- summary(fit)

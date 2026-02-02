@@ -2,40 +2,42 @@
 ## global.R
 ############################
 
-library(shiny)
-library(DT)
-library(openxlsx)
-library(dplyr)
-library(purrr)
-library(ggplot2)
-library(tidyr)
-library(plotly)
+library(shiny)    # Shiny app framework
+library(DT)       # Interactive data tables
+library(openxlsx) # Excel I/O for metadata + exports
+library(dplyr)    # Data wrangling
+library(purrr)    # List helpers
+library(ggplot2)  # Plots (wrapped into plotly)
+library(tidyr)    # Pivot helpers for long-form plots
+library(plotly)   # Interactive plots
 
 ## ---------- 0. Paths ----------
+# Metadata + expression matrices live under /table by default
 master_table_path <- "table/patchseqQC_master_table.xlsx"
 
 tpm_counts_path <- "table/gene_counts_TPM.csv"
 raw_counts_path <- "table/gene_counts.csv"
 
 ## ---------- 1. Load metadata ----------
+# Import the master metadata table (Excel)
 metadata_with_markers <- read.xlsx(master_table_path)
 
 # Save original column names (pretty names)
 orig_colnames <- colnames(metadata_with_markers)
 
-# Internally use syntactically valid column names
+# Internally use syntactically valid column names (safe for R)
 colnames(metadata_with_markers) <- make.names(orig_colnames, unique = TRUE)
 
 # Lookup: internal -> pretty (names = internal, values = pretty)
 pretty_col_lookup <- setNames(orig_colnames, colnames(metadata_with_markers))
 
-# helper: pretty -> internal
+# helper: pretty -> internal (for UI -> data mapping)
 pretty_to_internal <- function(pretty_vec) {
   idx <- match(pretty_vec, pretty_col_lookup)
   names(pretty_col_lookup)[idx]
 }
 
-# internal name of Sample column
+# internal name of Sample column (critical key for joins)
 sample_col_internal <- pretty_to_internal("Sample")
 if (length(sample_col_internal) != 1 || is.na(sample_col_internal)) {
   stop("Could not find a 'Sample' column in the metadata table.")
@@ -45,6 +47,7 @@ if (length(sample_col_internal) != 1 || is.na(sample_col_internal)) {
 metadata_with_markers[[sample_col_internal]] <- as.character(metadata_with_markers[[sample_col_internal]])
 
 ## ---------- 2. Core / visible columns ----------
+# Base columns shown by default in the table
 base_cols_pretty <- c(
   "col1","col2","col3"
 )
@@ -66,7 +69,7 @@ col_is_numeric <- sapply(metadata_with_markers, function(x) {
 filterable_numeric <- names(which(col_is_numeric))
 categorical_cols   <- setdiff(colnames(metadata_with_markers), filterable_numeric)
 
-# drop Sample from default categorical filter choices
+# drop Sample from default categorical filter choices (not useful as a filter)
 filterable_categorical <- setdiff(categorical_cols, sample_col_internal)
 
 filterable_all        <- c(filterable_categorical, filterable_numeric)
@@ -166,6 +169,7 @@ if (length(all_genes) == 0) {
 }
 
 ## ---------- 6. Helper: get expression vector for a gene across samples ----------
+# Returns a sample-ordered numeric vector (NA for missing)
 get_expr_vec <- function(mat, gene, samples) {
   samples <- as.character(samples)
   if (is.null(gene) || is.na(gene) || gene == "") return(rep(NA_real_, length(samples)))
